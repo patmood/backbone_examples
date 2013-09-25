@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Backbone User Manager</title>
+  <link rel="stylesheet" type="text/css" href="http://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css">
+
+</head>
+<body>
+  <div class="container">
+    <h1>Backbone User Manager</h1>
+    <hr>
+    <div class="page">
+    </div>
+  </div>
+
+
+
+<script type="text/template" id="user-list-tempate">
+  <h1>Users</h1>
+  <a href="#/new" class="btn btn-primary">New User</a>
+  <hr>
+
+  <table class="table striped">
+    <thead>
+      <tr>
+        <th>First Name</th>
+        <th>Last Name</th>
+        <th>Age</th>
+        <th></th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% _.each(users, function(user) { %>
+      <tr>
+        <td><%= user.get('firstname') %></td>
+        <td><%= user.get('lastname') %></td>
+        <td><%= user.get('age') %></td>
+        <td><a href='#/edit/<%= user.get('id') %>' class="btn btn-primary">Edit</a></td>
+        <td><a href='#/delete/<%= user.get('id') %>' class="btn btn-danger">Delete</a></td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</script>
+
+<script type="text/template" id="edit-user-template">
+  <h2><%= user ? 'Edit' : 'Create' %> User</h2>
+  <form action="" class="edit-user-form">
+    <label>Firstname
+      <input type="text" placeholder="Firstname" name="firstname" value="<%= user ? user.get('firstname') : '' %>">
+    </label>
+    <label>Lastname
+      <input type="text" placeholder="Lastname" name="lastname" value="<%= user ? user.get('lastname') : '' %>">
+    </label>
+    <label>Age
+      <input type="text" placeholder="Age" name="age" value="<%= user ? user.get('age') : '' %>">
+    </label>
+    <% if(user){ %>
+      <input type="hidden" name="id" value="<%= user.get('id') %>">
+    <% } %>
+    <input type="submit" class="btn" value="<%= user ? 'Update' : 'Create' %> User">
+  </form>
+</script>
+
+<script src="http://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+<script src="http://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.5.2/underscore-min.js"></script>
+<script src="http://cdnjs.cloudflare.com/ajax/libs/backbone.js/1.0.0/backbone-min.js"></script>
+<script>
+
+  //Ajax Prefilter
+  $.ajaxPrefilter( function( options, originalOptions, jqXHR ) {
+    options.url = 'http://backbonejs-beginner.herokuapp.com' + options.url
+  })
+
+  // Form Serializer Script
+  $.fn.serializeObject = function(){
+    var o = {}
+    var a = this.serializeArray()
+    $.each(a,function(){
+      if (a[this.name] !== undefined){
+        if (!o[this.name].push){
+          o[this.name] = [o[this.name]]
+        }
+        o[this.name].push(this.value || '')
+      } else {
+        o[this.name] = this.value || ''
+      }
+    })
+    return o
+  }
+
+  var Users = Backbone.Collection.extend({
+    url: '/users'
+  })
+
+  var User = Backbone.Model.extend({
+    urlRoot: '/users'
+  })
+
+  var UserList = Backbone.View.extend({
+    el: '.page',
+    render: function() {
+      var that = this
+      var users = new Users()
+      users.fetch({
+        success: function(users) {
+          var template = _.template($('#user-list-tempate').html(), {users: users.models})
+          that.$el.html(template)
+        }
+      })
+    }
+  })
+
+  var EditUser = Backbone.View.extend({
+    el: '.page',
+    render: function(options) {
+
+      if(options.id){
+        var user = new User({ id: options.id })
+        var that = this
+        user.fetch({
+          success: function(user){
+            var template = _.template($('#edit-user-template').html(), { user: user })
+            that.$el.html(template)
+          }
+        })
+      } else {
+        var template = _.template($('#edit-user-template').html(), { user: null })
+        this.$el.html(template)
+      }
+    },
+    events: {
+      'submit .edit-user-form':'saveUser' // key (first is event, second is element to attach event to) Value (action function)
+    },
+    saveUser: function(e){ // event e is a native javascript object
+      var userDetails = $(e.currentTarget).serializeObject()
+      var user = new User()
+      user.save(userDetails,{  // Every model in backbone has a save method that takes 2 arguments. Properties map/object, another object with options (eg success)
+        success: function(user){
+          router.navigate('', { trigger: true }) // got to root route and an options hash. In this case we just trigger the route
+        }
+      })
+      console.log(userDetails)
+      return false
+    }
+  })
+
+  var Router = Backbone.Router.extend({
+  routes: {
+    '':'home',
+    'new':'edit',
+    'edit/:id':'edit',
+    'delete/:id':'delete'
+    }
+  })
+
+  var userList = new UserList()
+  var editUser = new EditUser()
+  var router = new Router()
+  router.on('route:home', function () {
+    userList.render()
+  })
+  router.on('route:edit', function (id) {
+    editUser.render({ id: id })
+  })
+  router.on('route:delete', function (id) {
+    var user = new User({ id: id })
+    user.destroy({
+      success: function(){
+        router.navigate('', { trigger: true })
+      }
+    })
+  })
+
+  Backbone.history.start()
+</script>
+
+</body>
+</html>
